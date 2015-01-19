@@ -18,22 +18,14 @@ import asyncio
 import os
 
 from net import fields
-from . import rand, bignum
+from . import rand, bignum, rc4
 
 _c2s_connect = 0
 _s2c_encrypt = 1
 
 class _RC4:
     def __init__(self, base, key):
-        x = 0
-        self._state = list(range(256))
-        for i in range(256):
-            x = (key[i % len(key)] + self._state[i] + x) & 0xFF
-            self._state[i], self._state[x] = self._state[x], self._state[i]
-
-        # State stuff
-        self._x = 0
-        self._y = 0
+        self._key = rc4.initialize(key)
 
         # Now we map the base to us
         for i in dir(base):
@@ -41,27 +33,18 @@ class _RC4:
                 setattr(self, i, getattr(base, i))
         self._base = base
 
-    def _rc4(self, data):
-        for i in range(len(data)):
-            self._x = (self._x + 1) & 0xFF
-            self._y = (self._state[self._x] + self._y) & 0xFF
-            self._state[self._x], self._state[self._y] = self._state[self._y], self._state[self._x]
-            data[i] = (data[i] ^ self._state[(self._state[self._x] + self._state[self._y]) & 0xFF])
-
     @asyncio.coroutine
     def read(self, size):
         data = yield from self._base.read(size)
-        self._rc4(data)
-        return data
+        return rc4.transform(self._key, data)
 
     def write(self, data):
-        self._rc4(data)
-        self._base.write(data)
+        sendbuf = rc4.transform(self._key, data)
+        self._base.write(sendbuf)
 
 
 @asyncio.coroutine
 def establish_encryption_s2c(client, kKey, nKey):
-    print("moogalooga!")
     # We have some silly Cyanic stuff going on here... So, I'm going to use private methods.
     # Sue me!!!111eleventyeleven
     msgId = yield from fields._read_integer(client.reader, 1)
@@ -72,20 +55,22 @@ def establish_encryption_s2c(client, kKey, nKey):
 
     # Sanity...
     assert msgId == _c2s_connect
-    assert msgSize <= 64
+    assert msgSize <= 64 or msgSize == 0
 
     # Okay, so, now here's our cleverness. If the message is empty, this is a decrypted connection.
     if msgSize:
-        y_data = int.from_bytes((yield from client.reader.read(msgSize)), byteorder="big")
+        y_data = int.from_bytes((yield from client.reader.read(msgSize)), byteorder="little")
         cliSeed = pow(y_data, kKey, nKey).to_bytes(64, byteorder="little")
         srvSeed = rand.random_bytes(7)
 
         key = bytearray(7)
-        for i in range(len(key)):
-            if i >= len(cliSeed):
+        cliLen = len(cliSeed)
+        for i in range(7):
+            if i >= cliLen:
                 key[i] = srvSeed[i]
             else:
                 key[i] = cliSeed[i] ^ srvSeed[i]
+        key = bytes(key)
 
         # NetCliEncrypt
         fields._write_integer(client.writer, 1, _s2c_encrypt)

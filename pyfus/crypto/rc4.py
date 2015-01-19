@@ -15,27 +15,24 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import ctypes
-import sys
 
-if sys.platform == "win32":
-    _openssl = ctypes.CDLL("libeay32.dll")
-else:
-    _openssl = ctypes.CDLL("libcrypto.so")
+from . import openssl
 
-BN_new = _openssl.BN_new
-BN_free = _openssl.BN_free
-BN_num_bits = _openssl.BN_num_bits
-BN_num_bytes = lambda bn: int((BN_num_bits(bn) + 7) / 8)
-BN_generate_prime_ex = _openssl.BN_generate_prime_ex
-BN_bn2bin = _openssl.BN_bn2bin
+class _RC4Key(ctypes.Structure):
+    _fields_ = [
+            ("x", ctypes.c_uint32),
+            ("y", ctypes.c_uint32),
+            ("data", ctypes.c_uint32 * 256)
+        ]
 
-RAND_bytes = _openssl.RAND_bytes
-RAND_seed = _openssl.RAND_seed
-if sys.platform == "win32":
-    RAND_screen = _openssl.RAND_screen
-else:
-    def RAND_screen():
-        raise RuntimeError("Platform not supported")
 
-RC4_set_key = _openssl.RC4_set_key
-RC4 = _openssl.RC4
+def initialize(keyData):
+    rc4key = ctypes.pointer(_RC4Key())
+    openssl.RC4_set_key(rc4key, len(keyData), keyData)
+    return rc4key
+
+def transform(key, data):
+    size = len(data)
+    outbuf = bytes(size)
+    openssl.RC4(key, size, data, outbuf)
+    return outbuf

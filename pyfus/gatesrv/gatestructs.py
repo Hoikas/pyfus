@@ -27,6 +27,15 @@ ping_pong = (
     (fields.tiny_buffer, "payload", 4),
 )
 
+filesrv_request = (
+    (fields.integer, "trans_id", 4),
+    (fields.integer, "is_patcher", 1),
+)
+filesrv_reply = (
+    (fields.integer, "trans_id", 4),
+    (fields.string, "address", 24),
+)
+
 authsrv_request = (
     (fields.integer, "trans_id", 4),
 )

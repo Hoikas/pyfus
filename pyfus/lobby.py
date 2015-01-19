@@ -53,5 +53,6 @@ class LobbySrv(net.ServerBase):
         #       accept_client if we _don't_ schedule it.
         asyncio.async(srv.accept_client(cli))
 
+
 # Register this server so things actually happen
 net.register_server(LobbySrv)

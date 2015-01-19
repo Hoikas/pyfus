@@ -27,11 +27,16 @@ class GateKeeperSession(net.NetStructDispatcher):
         super(GateKeeperSession, self).__init__(client)
         self.lookup = {
             0: (_msg.ping_pong, self.ping_pong),
-            1: (_msg.authsrv_request, self.authsrv_request),
+            1: (_msg.filesrv_request, self.filesrv_request),
+            2: (_msg.authsrv_request, self.authsrv_request),
         }
 
     @asyncio.coroutine
     def authsrv_request(self, req):
+        print(str(req))
+
+    @asyncio.coroutine
+    def filesrv_request(self, req):
         print(str(req))
 
     @asyncio.coroutine

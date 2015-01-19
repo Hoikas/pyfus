@@ -62,7 +62,4 @@ class NetStructDispatcher:
             print(str(header))
             msg_struct, handler = lookup[header.msg_id]
             actual_netmsg = yield from read_netstruct(self.reader, msg_struct)
-            if asyncio.iscoroutine(handler):
-                asyncio.async(handler(actual_netmsg))
-            else:
-                handler(actual_netmsg)
+            asyncio.async(handler(actual_netmsg))
