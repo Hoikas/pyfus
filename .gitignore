@@ -4,6 +4,7 @@ __pycache__/
 
 # C extensions
 *.so
+*.dll
 
 # Distribution / packaging
 .Python
@@ -52,3 +53,8 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# Project files
+*.komodoproject
+*.komodotools/
+fus.ini
