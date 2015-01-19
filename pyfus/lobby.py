@@ -43,8 +43,13 @@ class LobbySrv(net.ServerBase):
         loop.run_until_complete(asyncio.start_server(self._on_client_connect, host=host, port=port))
 
     def _on_client_connect(self, reader, writer):
-        header = yield from net.read_netstruct(reader, connection_header)
-        print(str(header)) # FIXME: temp debugging
+        try:
+            header = yield from net.read_netstruct(reader, connection_header)
+        except ConnectionError:
+            # Not much else for us to do, really...
+            return
+        else:
+            print(str(header)) # FIXME: temp debugging
 
         cli = type("Client", tuple(), {"reader": reader, "writer": writer})
         srv = net.fetch_server(header.conn_type)

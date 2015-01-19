@@ -15,6 +15,8 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+import weakref
+
 from . import fields
 
 class NetMessage:
@@ -45,9 +47,10 @@ def read_netstruct(fd, struct):
 class NetStructDispatcher:
     """Dispatches NetStructs read off the wire to callables"""
 
-    def __init__(self, client):
+    def __init__(self, client, parent):
         self.reader = client.reader
         self.writer = client.writer
+        self._parent = weakref.ref(parent)
 
     @asyncio.coroutine
     def dispatch_netstructs(self, lookup, idSize=2, hasMsgSize=False):
@@ -56,10 +59,22 @@ class NetStructDispatcher:
             header_struct.append((fields.integer, "msg_size", idSize))
         header_struct.append((fields.integer, "msg_id", idSize))
 
-        # FIXME: Better logic
         while True:
-            header = yield from read_netstruct(self.reader, header_struct)
-            print(str(header))
-            msg_struct, handler = lookup[header.msg_id]
-            actual_netmsg = yield from read_netstruct(self.reader, msg_struct)
-            asyncio.async(handler(actual_netmsg))
+            try:
+                header = yield from read_netstruct(self.reader, header_struct)
+            except ConnectionError:
+                self.connection_reset()
+                break
+            else:
+                msg_struct, handler = lookup[header.msg_id]
+
+            try:
+                actual_netmsg = yield from read_netstruct(self.reader, msg_struct)
+            except ConnectionError:
+                self.connection_reset()
+                break
+            else:
+                asyncio.async(handler(actual_netmsg))
+
+    def connection_reset(self):
+        self._parent().clients.remove(self)

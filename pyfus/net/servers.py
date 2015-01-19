@@ -24,6 +24,9 @@ _c2s_connect = 0
 _s2c_encrypt = 1
 
 class ServerBase(abc.ABC):
+    def __init__(self):
+        self.clients = []
+
     @abc.abstractmethod
     def accept_client(self, client):
         pass

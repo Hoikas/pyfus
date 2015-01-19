@@ -23,8 +23,8 @@ import settings
 from . import gatestructs as _msg
 
 class GateKeeperSession(net.NetStructDispatcher):
-    def __init__(self, client):
-        super(GateKeeperSession, self).__init__(client)
+    def __init__(self, client, parent):
+        super(GateKeeperSession, self).__init__(client, parent)
         self.lookup = {
             0: (_msg.ping_pong, self.ping_pong),
             1: (_msg.filesrv_request, self.filesrv_request),
@@ -47,22 +47,18 @@ class GateKeeperSession(net.NetStructDispatcher):
 class GateKeeperSrv(net.ServerBase):
     _conn_type = 22
 
-    def __init__(self):
-        self._clients = []
-
     @asyncio.coroutine
     def accept_client(self, client):
         # First, receive the gate connection header.
         # This is some Cyan copypasta garbage... :(
         header = yield from net.read_netstruct(client.reader, _msg.connection_header)
-        print(str(header))
 
         # Now, establish the encryption...
         yield from crypto.establish_encryption_s2c(client, self._k, self._n)
 
-        # Blarg
-        session = GateKeeperSession(client)
-        self._clients.append(session)
+        # Okay, now we have our dude
+        session = GateKeeperSession(client, self)
+        self.clients.append(session)
         yield from session.dispatch_netstructs(session.lookup)
 
     def start(self, loop):
