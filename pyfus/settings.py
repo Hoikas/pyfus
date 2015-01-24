@@ -18,9 +18,16 @@ import argparse
 import configparser
 import os.path
 import sys
+import uuid
 
 # This is like a default fus.ini
 _default_config = {
+    "admin": {
+        "k_key": "",
+        "n_key": "",
+        "x_key": "",
+    },
+
     "auth": {
         "restrict_logins": False,
         "k_key": "",
@@ -42,6 +49,11 @@ _default_config = {
     "lobby": {
         "host": "0.0.0.0",
         "port": 14617,
+    },
+
+    "product": {
+        "build_id": 0,
+        "uuid": uuid.UUID("ea489821-6c35-4bd0-9dae-bb17c585e680"),
     },
 
     "shard": {
@@ -77,6 +89,8 @@ class _IniSection:
                     theValue = _config.getboolean(name, key)
                 elif isinstance(value, int):
                     theValue = _config.getint(name, key)
+                elif isinstance(value, uuid.UUID):
+                    theValue = uuid.UUID(_config.get(name, key))
                 else:
                     theValue = _config.get(name, key)
             else:

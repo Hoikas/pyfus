@@ -18,6 +18,7 @@ import base64
 import crypto
 
 gValues = {
+    (None, "admin"): 97,
     ("Server.Auth", "auth"): 41,
     ("Server.Game", "game"): 73,
     ("Server.Gate", "gatekeeper"): 4,

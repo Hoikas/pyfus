@@ -19,44 +19,53 @@ import asyncio
 import net
 import settings
 
-fields = net.fields
-connection_header = (
-    (fields.integer, "conn_type", 1),
-    (fields.integer, "size", 2),
-    (fields.integer, "build_id", 4),
-    (fields.integer, "build_type", 4),
-    (fields.integer, "branch_id", 4),
-    (fields.uuid, "product", 1),
-)
-
-
 class LobbySrv(net.ServerBase):
-    # Most servers have a numerical ID... But the lobby does not. Let's cheat.
-    _conn_type = "lobby"
+    _conn_type = ord('l')
 
+    def __init__(self):
+        super(LobbySrv, self).__init__()
+        self._client_tasks = []
+
+    @asyncio.coroutine
     def accept_client(self, client):
-        raise RuntimeError("LobbySrv cannot accept clients. It listens for connections!")
+        # This should really raise an exception, but that exposes an attack vector.
+        # Let's just nuke this foolish client.
+        client.writer.close()
+
+    def shutdown(self):
+        # First, kill off the listen server...
+        self._server.close()
+        asyncio.wait(self._server.wait_closed())
+
+        # Now nuke all client sessions.
+        # NOTE: By doing this, we will implicitly nuke any fus srv2srv clients
+        #       Yes, I'm looking at you, AdminClient
+        for i in self._client_tasks:
+            i.cancel()
+        del self._client_tasks[:]
+
+        # We aren't dead yet... The loop still needs to run and raise the exceptions. Anything that
+        # is shielded will need to finish (eg database transactions). Then, the loop will end, and we
+        # go p00f, p00f, a p00fing
+        asyncio.get_event_loop().stop()
 
     def start(self, loop):
         host = settings.lobby.host
         port = settings.lobby.port
-        loop.run_until_complete(asyncio.start_server(self._on_client_connect, host=host, port=port))
+        self._server = loop.run_until_complete(asyncio.start_server(self._on_client_connect, host=host, port=port))
 
     def _on_client_connect(self, reader, writer):
-        try:
-            header = yield from net.read_netstruct(reader, connection_header)
-        except ConnectionError:
-            # Not much else for us to do, really...
-            return
-        else:
-            print(str(header)) # FIXME: temp debugging
-
         cli = type("Client", tuple(), {"reader": reader, "writer": writer})
+
+        try:
+            # TODO: impose a timeout here to defeat slowloris
+            header = yield from net.read_netstruct(reader, net.connection_header)
+        except ConnectionError:
+            return
+
         srv = net.fetch_server(header.conn_type)
-        # NOTE: We have to schedule the accept to happen later so we don't halt the listen loop
-        #       forever. Python is actually smart enough to detect this and will actually nuke the
-        #       accept_client if we _don't_ schedule it.
-        asyncio.async(srv.accept_client(cli))
+        task = asyncio.async(srv.accept_client(cli))
+        self._client_tasks.append(task)
 
 
 # Register this server so things actually happen

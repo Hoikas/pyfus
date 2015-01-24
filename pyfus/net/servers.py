@@ -31,18 +31,23 @@ class ServerBase(abc.ABC):
     def accept_client(self, client):
         pass
 
-    def decode_key(self, key):
-        return int.from_bytes(base64.b64decode(key), byteorder="big")
-
-    @abc.abstractmethod
     def start(self, loop):
         pass
+
+
+class ServerID:
+    admin = ord('a')
+    gatekeeper = 22
+    lobby = ord('l')
 
 
 def all_servers():
     """Enumerates all registered servers"""
     for i in _servers.values():
         yield i
+
+def decode_key(key):
+    return int.from_bytes(base64.b64decode(key), byteorder="big")
 
 def fetch_server(conn_type):
     """Fetches a specific server type"""

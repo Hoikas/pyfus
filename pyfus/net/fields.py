@@ -19,6 +19,18 @@ import struct
 from uuid import UUID
 
 @asyncio.coroutine
+def _read_blob(fd, size):
+    data = yield from fd.read(size)
+    if len(data) != size:
+        raise ConnectionResetError()
+    return data
+
+def _write_blob(fd, size, data):
+    fd.write(data)
+
+blob = (_read_blob, _write_blob)
+
+@asyncio.coroutine
 def _read_buffer(fd, size, maxsize):
     bufsz = yield from _read_integer(fd, size)
     if bufsz > maxsize:
@@ -47,8 +59,12 @@ def _read_integer(fd, size):
         p = "<I"
     else:
         raise RuntimeError("Invalid integer field size: {}".format(size))
+
     data = yield from fd.read(size)
-    return struct.unpack(p, data)[0]
+    if len(data) == size:
+        return struct.unpack(p, data)[0]
+    else:
+        raise ConnectionResetError()
 
 def _write_integer(fd, size, value):
     if size == 1:
@@ -65,13 +81,16 @@ integer = (_read_integer, _write_integer)
 
 @asyncio.coroutine
 def _read_string(fd, size):
-    buf = yield from fd.read(size * 2)
-    string = buf.split(b'\0', 1)[0]
-    return string.decode("utf-16", errors="replace")
+    actualSize = size * 2
+    buf = yield from fd.read(actualSize)
+    if len(buf) != actualSize:
+        raise ConnectionResetError()
+    decoded = buf.decode("utf-16-le", errors="replace")
+    return decoded.rstrip('\0')
 
 def _write_string(fd, size, value):
     bSize = (size - 1) * 2
-    buf = value.encode("utf-16", errors="replace")
+    buf = value.encode("utf-16-le", errors="replace")
 
     # Make sure the UTF-16 buffer is at least the blob size
     # Further, only send out blobsize-1 characters. Manually send null terminator
@@ -85,6 +104,8 @@ string = (_read_string, _write_string)
 def _read_uuid(fd, size):
     assert size == 1
     data = yield from fd.read(16)
+    if len(data) != 16:
+        raise ConnectionResetError()
     return UUID(bytes_le=data)
 
 def _write_uuid(fd, size, value):

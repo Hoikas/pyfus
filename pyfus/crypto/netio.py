@@ -17,11 +17,24 @@
 import asyncio
 import os
 
-from net import fields
+import net
 from . import rand, bignum, rc4
 
 _c2s_connect = 0
 _s2c_encrypt = 1
+
+fields = net.fields
+_connect_struct = (
+    (fields.integer, "msg_id", 1),
+    (fields.integer, "msg_size", 1),
+    (fields.blob, "y_data", 64),
+)
+
+_encrypt_struct = (
+    (fields.integer, "msg_id", 1),
+    (fields.integer, "msg_size", 1),
+    (fields.blob, "server_seed", 7),
+)
 
 class _RC4:
     def __init__(self, base, key):
@@ -41,6 +54,38 @@ class _RC4:
     def write(self, data):
         sendbuf = rc4.transform(self._key, data)
         self._base.write(sendbuf)
+
+
+@asyncio.coroutine
+def establish_encryption_c2s(client, gValue, nKey, xKey):
+    b = rand.random_int(64)
+    cliSeed = pow(xKey, b, nKey).to_bytes(64, byteorder="little")
+    srvSeed = pow(gValue, b, nKey).to_bytes(64, byteorder="little")
+
+    # Send our junk to the server
+    ncc = net.NetMessage(_connect_struct,
+                         msg_id=_c2s_connect,
+                         msg_size=66,
+                         y_data=srvSeed)
+    net.write_netstruct(client.writer, ncc)
+    yield from client.writer.drain()
+
+    # Now, we get the seed from the server and make the key...
+    nce = yield from net.read_netstruct(client.reader, _encrypt_struct)
+    assert nce.msg_id == _s2c_encrypt
+    assert nce.msg_size == 9
+
+    key = bytearray(7)
+    cliLen = len(cliSeed)
+    for i in range(7):
+        if i >= cliLen:
+            key[i] = nce.server_seed[i]
+        else:
+            key[i] = cliSeed[i] ^ nce.server_seed[i]
+    key = bytes(key)
+
+    client.reader = _RC4(client.reader, key)
+    client.writer = _RC4(client.writer, key)
 
 
 @asyncio.coroutine

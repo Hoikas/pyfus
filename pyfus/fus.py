@@ -19,10 +19,11 @@ import sys
 
 # Some requisite imports to ensure everything is set up correctly.
 # NOTE: We *must* include all server modules here so that they register themselves.
-import gatesrv, lobby
+import adminsrv, gatesrv, lobby
 import settings
 
 # Things that we actually use
+import console
 import net
 
 def _init_event_loop():
@@ -45,6 +46,10 @@ if __name__ == "__main__":
     # NOTE that we aren't doing much listen/accept logic here. That happens in the lobby...
     for i in net.all_servers():
         i.start(loop)
+
+    # Get the console ready to go...
+    console.initialize()
+    console.run_forever()
 
     # And now, we run the event loop forever and ever...
     try:

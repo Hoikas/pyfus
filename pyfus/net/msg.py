@@ -15,9 +15,20 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+import io
 import weakref
 
 from . import fields
+import settings
+
+connection_header = (
+    (fields.integer, "conn_type", 1),
+    (fields.integer, "size", 2),
+    (fields.integer, "build_id", 4),
+    (fields.integer, "build_type", 4),
+    (fields.integer, "branch_id", 4),
+    (fields.uuid, "product", 1),
+)
 
 class NetMessage:
     def __init__(self, struct, **kwargs):
@@ -43,38 +54,110 @@ def read_netstruct(fd, struct):
         setattr(msg, name, data)
     return msg
 
+def write_netstruct(fd, msg):
+    for io, name, size in msg._struct:
+        data = getattr(msg, name)
+        io[1](fd, size, data)
+
 
 class NetStructDispatcher:
     """Dispatches NetStructs read off the wire to callables"""
 
-    def __init__(self, client, parent):
-        self.reader = client.reader
-        self.writer = client.writer
-        self._parent = weakref.ref(parent)
+    def __init__(self, idSize=2, hasMsgSize=False):
+        self._id_size = idSize
+        self._has_msg_size = hasMsgSize
+        self.reader = None
+        self.writer = None
 
     @asyncio.coroutine
-    def dispatch_netstructs(self, lookup, idSize=2, hasMsgSize=False):
+    def dispatch_netstructs(self):
         header_struct = []
-        if hasMsgSize:
-            header_struct.append((fields.integer, "msg_size", idSize))
-        header_struct.append((fields.integer, "msg_id", idSize))
+        if self._has_msg_size:
+            header_struct.append((fields.integer, "msg_size", self._id_size))
+        header_struct.append((fields.integer, "msg_id", self._id_size))
 
         while True:
             try:
                 header = yield from read_netstruct(self.reader, header_struct)
-            except ConnectionError:
+            except (asyncio.CancelledError, ConnectionError):
                 self.connection_reset()
                 break
             else:
-                msg_struct, handler = lookup[header.msg_id]
+                msg_struct, handler = self.incoming_lookup[header.msg_id]
 
-            try:
-                actual_netmsg = yield from read_netstruct(self.reader, msg_struct)
-            except ConnectionError:
-                self.connection_reset()
-                break
+            if msg_struct is None:
+                asyncio.async(handler())
             else:
-                asyncio.async(handler(actual_netmsg))
+                try:
+                    actual_netmsg = yield from read_netstruct(self.reader, msg_struct)
+                except (asyncio.CancelledError, ConnectionError):
+                    self.connection_reset()
+                    break
+                else:
+                    asyncio.async(handler(actual_netmsg))
 
     def connection_reset(self):
+        if self.writer is not None:
+            # This closes the transport
+            self.writer.close()
+
+    @asyncio.coroutine
+    def send_netstruct(self, netmsg):
+        netstruct = netmsg._struct
+        wantSize = self._has_msg_size
+        size = self._id_size
+        if wantSize:
+            writer = io.BytesIO()
+        else:
+            writer = self.writer
+
+        msg_id = self.outgoing_lookup[netstruct]
+        fields._write_integer(writer, size, msg_id)
+        write_netstruct(writer, netmsg)
+
+        if wantSize:
+            buffer = writer.getbuffer()
+            # Remember, eap size is the entire size (msgSize + msgId + payload)
+            fields._write_integer(self.writer, size, len(buffer) + size)
+            self.writer.write(buffer)
+
+        try:
+            yield from self.writer.drain()
+        except (asyncio.CancelledError, ConnectionError):
+            self.connection_reset()
+
+
+class NetClient(NetStructDispatcher):
+    @asyncio.coroutine
+    def _finalize_connection(self):
+        pass
+
+    @asyncio.coroutine
+    def start(self):
+        self.reader, self.writer = yield from asyncio.open_connection(settings.lobby.host, settings.lobby.port)
+        hdr = NetMessage(connection_header,
+                         conn_type=self._conn_type,
+                         size=31,
+                         build_id=settings.product.build_id,
+                         build_type=50,
+                         branch_id=1,
+                         product=settings.product.uuid)
+        write_netstruct(self.writer, hdr)
+        try:
+            yield from self.writer.drain()
+            yield from self._finalize_connection()
+            yield from self.dispatch_netstructs()
+        except (asyncio.CancelledError, ConnectionError):
+            self.connection_reset()
+
+
+class NetServerSession(NetStructDispatcher):
+    def __init__(self, client, parent, idSize=2, hasMsgSize=False):
+        super(NetServerSession, self).__init__(idSize, hasMsgSize)
+        self.reader = client.reader
+        self.writer = client.writer
+        self._parent = weakref.ref(parent)
+
+    def connection_reset(self):
+        super(NetServerSession, self).connection_reset()
         self._parent().clients.remove(self)

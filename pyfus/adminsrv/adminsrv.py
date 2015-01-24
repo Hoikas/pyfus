@@ -15,54 +15,45 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+import sys
 
 import crypto
 import net
 import settings
 
-from . import gatestructs as _msg
+from . import adminstructs as _msg
 
-class GateKeeperSession(net.NetServerSession):
+class AdminSession(net.NetServerSession):
     def __init__(self, client, parent):
-        super(GateKeeperSession, self).__init__(client, parent)
+        super(AdminSession, self).__init__(client, parent)
         self.incoming_lookup = {
-            0: (_msg.ping_pong, self.ping_pong),
-            1: (_msg.filesrv_request, self.filesrv_request),
-            2: (_msg.authsrv_request, self.authsrv_request),
+            0: (_msg.shutdown_request, self.shutdown_shard),
+        }
+        self.outgoing_lookup = {
+            
         }
 
     @asyncio.coroutine
-    def authsrv_request(self, req):
-        print(str(req))
+    def shutdown_shard(self, msg):
+        print(msg.message)
 
-    @asyncio.coroutine
-    def filesrv_request(self, req):
-        print(str(req))
+        # Schedule the shutdown to start soon. We don't want to deadlock!
+        lobby = net.fetch_server(net.ServerID.lobby)
+        asyncio.get_event_loop().call_later(2, lobby.shutdown())
 
-    @asyncio.coroutine
-    def ping_pong(self, ping):
-        print(str(ping))
-
-
-class GateKeeperSrv(net.ServerBase):
-    _conn_type = net.ServerID.gatekeeper
-    _k = net.decode_key(settings.gatekeeper.k_key)
-    _n = net.decode_key(settings.gatekeeper.n_key)
+class AdminSrv(net.ServerBase):
+    _conn_type = net.ServerID.admin
+    _k = net.decode_key(settings.admin.k_key)
+    _n = net.decode_key(settings.admin.n_key)
 
     @asyncio.coroutine
     def accept_client(self, client):
-        # First, receive the gate connection header.
-        # This is some Cyan copypasta garbage... :(
-        header = yield from net.read_netstruct(client.reader, _msg.connection_header)
-
-        # Now, establish the encryption...
         yield from crypto.establish_encryption_s2c(client, self._k, self._n)
 
-        # Okay, now we have our dude
-        session = GateKeeperSession(client, self)
+        session = AdminSession(client, self)
         self.clients.append(session)
         yield from session.dispatch_netstructs()
 
 
-# Register the GateKeeperSrv
-net.register_server(GateKeeperSrv)
+# Register thyself
+net.register_server(AdminSrv)
