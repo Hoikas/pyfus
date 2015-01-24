@@ -65,6 +65,7 @@ _default_config = {
 
 # fus command-line argument parsing
 _parser = argparse.ArgumentParser(prog="fus")
+_parser.add_argument("--debug", action="store_true", default=False, help="enable verbose logging (including python asyncio)")
 _parser.add_argument("--restrict-logins", action="store_true", default="False", help="disallow logins by normal users (super-users only)")
 _parser.add_argument("fus_ini", metavar="fus.ini", default="fus.ini", nargs="?", help="path to the fus configuration file")
 
@@ -102,6 +103,10 @@ class _IniSection:
 for _key, _value in _default_config.items():
     globals()[_key] = _IniSection(_key, _value)
 
+# Manually handle some command-line args
+if _args.debug:
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
 
 # If we're running as __main__, then let's spit out a sample configuration...
 if __name__ == "__main__":
