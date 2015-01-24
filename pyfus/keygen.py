@@ -25,19 +25,23 @@ gValues = {
 }
 
 def generate_keyset(cliname, srvname, gValue):
+    def _base64(value):
+        bstr = base64.b64encode(value)
+        return bstr.decode(encoding="utf8")
+
     k, n, x = crypto.generate_keys(gValue)
     serverini, fusini = [], []
 
     fusini.append("[{}]".format(srvname))
-    fusini.append("k_key = {}".format(base64.b64encode(k)))
-    fusini.append("n_key = {}".format(base64.b64encode(n)))
+    fusini.append("k_key = {}".format(_base64(k)))
+    fusini.append("n_key = {}".format(_base64(n)))
 
     if cliname:
-        serverini.append("{}.N \"{}\"".format(cliname, base64.b64encode(n)))
-        serverini.append("{}.X \"{}\"".format(cliname, base64.b64encode(x)))
+        serverini.append("{}.N \"{}\"".format(cliname, _base64(n)))
+        serverini.append("{}.X \"{}\"".format(cliname, _base64(x)))
     else:
         # This is a srv2srv connection, so we need all the keys in fus.ini
-        fusini.append("x_key = {}".format(base64.b64encode(x)))
+        fusini.append("x_key = {}".format(_base64(x)))
     return serverini, fusini
 
 if __name__ == "__main__":
