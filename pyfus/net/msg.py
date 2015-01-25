@@ -15,6 +15,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+import codecs
 import io
 import weakref
 
@@ -49,16 +50,26 @@ def read_netstruct(fd, struct):
     """Reads a message off the wire defined by the given struct"""
 
     msg = NetMessage(struct)
-    for io, name, size in struct:
-        data = yield from io[0](fd, size)
+    for rw, name, size in struct:
+        data = yield from rw[0](fd, size)
         setattr(msg, name, data)
     return msg
 
 def write_netstruct(fd, msg):
-    for io, name, size in msg._struct:
-        data = getattr(msg, name)
-        io[1](fd, size, data)
+    def _debug(msg, data):
+        hex = codecs.encode(data, "hex")
+        print("{}\n{}\n".format(msg._struct, hex))
 
+    # Unfortunately, the client arseplodes if we send the buffer bit-by-bit in some cases...
+    # So, we're going to have to buffer it locally.
+    bio = io.BytesIO()
+    for rw, name, size in msg._struct:
+        data = getattr(msg, name)
+        rw[1](bio, size, data)
+
+    data = bio.getvalue()
+    #_debug(msg, data)
+    fd.write(data)
 
 class NetStructDispatcher:
     """Dispatches NetStructs read off the wire to callables"""
@@ -82,8 +93,13 @@ class NetStructDispatcher:
             except (asyncio.CancelledError, ConnectionError):
                 self.connection_reset()
                 break
-            else:
+
+            try:
                 msg_struct, handler = self.incoming_lookup[header.msg_id]
+            except LookupError:
+                # TODO: log error
+                self.connection_reset()
+                return
 
             if msg_struct is None:
                 asyncio.async(handler())

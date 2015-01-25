@@ -37,7 +37,9 @@ class ServerBase(abc.ABC):
 
 class ServerID:
     admin = ord('a')
+    auth = 10
     gatekeeper = 22
+    file = 16
     lobby = ord('l')
 
 

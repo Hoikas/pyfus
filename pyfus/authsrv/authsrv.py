@@ -20,55 +20,38 @@ import crypto
 import net
 import settings
 
-from . import gatestructs as _msg
+from . import authstructs as _msg
 
-class GateKeeperSession(net.NetServerSession):
+class AuthSession(net.NetServerSession):
     def __init__(self, client, parent):
-        super(GateKeeperSession, self).__init__(client, parent)
+        super(AuthSession, self).__init__(client, parent)
         self.incoming_lookup = {
             0: (_msg.ping_pong, self.ping_pong),
-            1: (_msg.filesrv_request, self.filesrv_request),
-            2: (_msg.authsrv_request, self.authsrv_request),
         }
-        self.outgoing_lookup = {
-            _msg.filesrv_reply: 1,
-        }
-
-    @asyncio.coroutine
-    def authsrv_request(self, req):
-        print(str(req))
-
-    @asyncio.coroutine
-    def filesrv_request(self, req):
-        reply = net.NetMessage(_msg.filesrv_reply,
-                               trans_id=req.trans_id,
-                               address=settings.gatekeeper.filesrv_ip)
-        yield from self.send_netstruct(reply)
 
     @asyncio.coroutine
     def ping_pong(self, ping):
         print(str(ping))
 
 
-class GateKeeperSrv(net.ServerBase):
-    _conn_type = net.ServerID.gatekeeper
-    _k = net.decode_key(settings.gatekeeper.k_key)
-    _n = net.decode_key(settings.gatekeeper.n_key)
+class AuthSrv(net.ServerBase):
+    _conn_type = net.ServerID.auth
+    _k = net.decode_key(settings.auth.k_key)
+    _n = net.decode_key(settings.auth.n_key)
 
     @asyncio.coroutine
     def accept_client(self, client):
-        # First, receive the gate connection header.
-        # This is some Cyan copypasta garbage... :(
+        # First, receive the auth connection header.
         header = yield from net.read_netstruct(client.reader, _msg.connection_header)
 
         # Now, establish the encryption...
         yield from crypto.establish_encryption_s2c(client, self._k, self._n)
 
         # Okay, now we have our dude
-        session = GateKeeperSession(client, self)
+        session = AuthSession(client, self)
         self.clients.append(session)
         yield from session.dispatch_netstructs()
 
 
 # Register the GateKeeperSrv
-net.register_server(GateKeeperSrv)
+net.register_server(AuthSrv)

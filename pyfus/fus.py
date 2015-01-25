@@ -19,7 +19,7 @@ import sys
 
 # Some requisite imports to ensure everything is set up correctly.
 # NOTE: We *must* include all server modules here so that they register themselves.
-import adminsrv, gatesrv, lobby
+import adminsrv, authsrv, gatesrv, filesrv, lobby
 import settings
 
 # Things that we actually use

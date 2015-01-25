@@ -81,22 +81,20 @@ integer = (_read_integer, _write_integer)
 
 @asyncio.coroutine
 def _read_string(fd, size):
-    actualSize = size * 2
-    buf = yield from fd.read(actualSize)
-    if len(buf) != actualSize:
-        raise ConnectionResetError()
+    # It's official. The size in the NetStruct is a lie! :)
+    actualSize = struct.unpack("<H", (yield from fd.readexactly(2)))[0]
+    actualSize *= 2
+
+    buf = yield from fd.readexactly(actualSize)
     decoded = buf.decode("utf-16-le", errors="replace")
     return decoded.rstrip('\0')
 
 def _write_string(fd, size, value):
-    bSize = (size - 1) * 2
     buf = value.encode("utf-16-le", errors="replace")
+    actualSize = int(len(buf) / 2)
 
-    # Make sure the UTF-16 buffer is at least the blob size
-    # Further, only send out blobsize-1 characters. Manually send null terminator
-    buf = buf.ljust(bSize, b'\0')
+    fd.write(struct.pack("<H", int(actualSize)))
     fd.write(buf)
-    fd.write(struct.pack("H", 0))
 
 string = (_read_string, _write_string)
 

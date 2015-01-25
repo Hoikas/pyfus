@@ -15,6 +15,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+import codecs
 import os
 
 import net
@@ -49,9 +50,19 @@ class _RC4:
     @asyncio.coroutine
     def read(self, size):
         data = yield from self._base.read(size)
-        return rc4.transform(self._key, data)
+        result = rc4.transform(self._key, data)
+        #print(codecs.encode(result, "hex"))
+        return result
+
+    @asyncio.coroutine
+    def readexactly(self, size):
+        data = yield from self._base.readexactly(size)
+        result = rc4.transform(self._key, data)
+        #print(codecs.encode(result, "hex"))
+        return result
 
     def write(self, data):
+        #print(codecs.encode(data, "hex"))
         sendbuf = rc4.transform(self._key, data)
         self._base.write(sendbuf)
 
@@ -117,10 +128,8 @@ def establish_encryption_s2c(client, kKey, nKey):
                 key[i] = cliSeed[i] ^ srvSeed[i]
         key = bytes(key)
 
-        # NetCliEncrypt
-        fields._write_integer(client.writer, 1, _s2c_encrypt)
-        fields._write_integer(client.writer, 1, 9)
-        client.writer.write(srvSeed)
+        nce = net.NetMessage(_encrypt_struct, msg_id=_s2c_encrypt, msg_size=9, server_seed=srvSeed)
+        net.write_netstruct(client.writer, nce)
         yield from client.writer.drain()
 
         # Now set up our encrypted reader/writer
