@@ -58,6 +58,8 @@ def read_netstruct(fd, struct):
     return msg
 
 def write_netstruct(fd, msg):
+    """Writes a NetStruct to a given fd and returns the number of bytes written. If fd is None, then
+       the buffered data is returned instead"""
     def _debug(msg, data):
         hex = codecs.encode(data, "hex")
         print("{}\n{}\n".format(msg._struct, hex))
@@ -70,28 +72,31 @@ def write_netstruct(fd, msg):
         rw[1](bio, size, data)
 
     data = bio.getvalue()
-    #_debug(msg, data)
-    fd.write(data)
+    if fd is not None:
+        #_debug(msg, data)
+        fd.write(data)
+        return len(data)
+    else:
+        return data
 
 class NetStructDispatcher:
     """Dispatches NetStructs read off the wire to callables"""
 
-    def __init__(self, idSize=2, hasMsgSize=False):
-        self._id_size = idSize
-        self._has_msg_size = hasMsgSize
+    # This is the most common message header...
+    _msg_header = (
+        (fields.integer, "msg_id", 2),
+    )
+
+    def __init__(self):
         self.reader = None
         self.writer = None
+        self._msg_header_size = sum(list(zip(*self._msg_header))[2])
 
     @asyncio.coroutine
     def dispatch_netstructs(self):
-        header_struct = []
-        if self._has_msg_size:
-            header_struct.append((fields.integer, "msg_size", self._id_size))
-        header_struct.append((fields.integer, "msg_id", self._id_size))
-
         while True:
             try:
-                header = yield from read_netstruct(self.reader, header_struct)
+                header = yield from read_netstruct(self.reader, self._msg_header)
             except kablooey:
                 self.connection_reset()
                 break
@@ -121,24 +126,15 @@ class NetStructDispatcher:
 
     @asyncio.coroutine
     def send_netstruct(self, netmsg):
-        netstruct = netmsg._struct
-        wantSize = self._has_msg_size
-        size = self._id_size
-        if wantSize:
-            writer = io.BytesIO()
-        else:
-            writer = self.writer
+        msgBuf = write_netstruct(None, netmsg)
+        msgId = self.outgoing_lookup[netmsg._struct]
+        header = NetMessage(self._msg_header,
+                            msg_id=msgId,
+                            msg_size=self._msg_header_size+len(msgBuf))
+        headerBuf = write_netstruct(None, header)
 
-        msg_id = self.outgoing_lookup[netstruct]
-        fields._write_integer(writer, size, msg_id)
-        write_netstruct(writer, netmsg)
-
-        if wantSize:
-            buffer = writer.getbuffer()
-            # Remember, eap size is the entire size (msgSize + msgId + payload)
-            fields._write_integer(self.writer, size, len(buffer) + size)
-            self.writer.write(buffer)
-
+        sendBuf = headerBuf + msgBuf
+        self.writer.write(sendBuf)
         try:
             yield from self.writer.drain()
         except kablooey:
@@ -170,8 +166,8 @@ class NetClient(NetStructDispatcher):
 
 
 class NetServerSession(NetStructDispatcher):
-    def __init__(self, client, parent, idSize=2, hasMsgSize=False):
-        super(NetServerSession, self).__init__(idSize, hasMsgSize)
+    def __init__(self, client, parent):
+        super(NetServerSession, self).__init__()
         self.reader = client.reader
         self.writer = client.writer
         self._parent = weakref.ref(parent)

@@ -24,19 +24,28 @@ import settings
 from . import filestructs as _msg
 
 class FileSession(net.NetServerSession):
+    # Yes, the FileSrv is a special case :(
+    _msg_header = (
+        (net.fields.integer, "msg_size", 4),
+        (net.fields.integer, "msg_id", 4),
+    )
+
     def __init__(self, client, parent):
-        super(FileSession, self).__init__(client, parent, 4, True)
+        super(FileSession, self).__init__(client, parent)
         self.incoming_lookup = {
             10: (_msg.build_request, self.send_buildid)
         }
         self.outgoing_lookup = {
-            
+            _msg.build_reply: 10,
         }
 
     @asyncio.coroutine
     def send_buildid(self, req):
-        # The request is largely garbage...
-        print(str(req))
+        reply = net.NetMessage(_msg.build_reply,
+                               trans_id=req.trans_id,
+                               result=0,
+                               build_id=settings.product.build_id)
+        yield from self.send_netstruct(reply)
 
 class FileSrv(net.ServerBase):
     _conn_type = net.ServerID.file
