@@ -60,7 +60,7 @@ class LobbySrv(net.ServerBase):
         try:
             # TODO: impose a timeout here to defeat slowloris
             header = yield from net.read_netstruct(reader, net.connection_header)
-        except ConnectionError:
+        except net.kablooey:
             return
 
         srv = net.fetch_server(header.conn_type)

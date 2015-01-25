@@ -20,9 +20,7 @@ from uuid import UUID
 
 @asyncio.coroutine
 def _read_blob(fd, size):
-    data = yield from fd.read(size)
-    if len(data) != size:
-        raise ConnectionResetError()
+    data = yield from fd.readexactly(size)
     return data
 
 def _write_blob(fd, size, data):
@@ -36,7 +34,7 @@ def _read_buffer(fd, size, maxsize):
     if bufsz > maxsize:
         # somehow signal that the client needs to be booted
         pass
-    data = yield from fd.read(bufsz)
+    data = yield from fd.readexactly(bufsz)
     return data
 
 def _write_buffer(fd, size, value):
@@ -60,11 +58,8 @@ def _read_integer(fd, size):
     else:
         raise RuntimeError("Invalid integer field size: {}".format(size))
 
-    data = yield from fd.read(size)
-    if len(data) == size:
-        return struct.unpack(p, data)[0]
-    else:
-        raise ConnectionResetError()
+    data = yield from fd.readexactly(size)
+    return struct.unpack(p, data)[0]
 
 def _write_integer(fd, size, value):
     if size == 1:
@@ -101,9 +96,7 @@ string = (_read_string, _write_string)
 @asyncio.coroutine
 def _read_uuid(fd, size):
     assert size == 1
-    data = yield from fd.read(16)
-    if len(data) != 16:
-        raise ConnectionResetError()
+    data = yield from fd.readexactly(16)
     return UUID(bytes_le=data)
 
 def _write_uuid(fd, size, value):

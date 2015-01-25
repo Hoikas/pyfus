@@ -22,6 +22,8 @@ import weakref
 from . import fields
 import settings
 
+kablooey = (asyncio.CancelledError, ConnectionError, EOFError)
+
 connection_header = (
     (fields.integer, "conn_type", 1),
     (fields.integer, "size", 2),
@@ -90,7 +92,7 @@ class NetStructDispatcher:
         while True:
             try:
                 header = yield from read_netstruct(self.reader, header_struct)
-            except (asyncio.CancelledError, ConnectionError):
+            except kablooey:
                 self.connection_reset()
                 break
 
@@ -106,7 +108,7 @@ class NetStructDispatcher:
             else:
                 try:
                     actual_netmsg = yield from read_netstruct(self.reader, msg_struct)
-                except (asyncio.CancelledError, ConnectionError):
+                except kablooey:
                     self.connection_reset()
                     break
                 else:
@@ -139,7 +141,7 @@ class NetStructDispatcher:
 
         try:
             yield from self.writer.drain()
-        except (asyncio.CancelledError, ConnectionError):
+        except kablooey:
             self.connection_reset()
 
 
@@ -163,7 +165,7 @@ class NetClient(NetStructDispatcher):
             yield from self.writer.drain()
             yield from self._finalize_connection()
             yield from self.dispatch_netstructs()
-        except (asyncio.CancelledError, ConnectionError):
+        except kablooey:
             self.connection_reset()
 
 
