@@ -21,6 +21,7 @@ import weakref
 
 from . import fields
 import settings
+import util
 
 kablooey = (asyncio.CancelledError, ConnectionError, EOFError)
 
@@ -87,10 +88,16 @@ class NetStructDispatcher:
         (fields.integer, "msg_id", 2),
     )
 
-    def __init__(self):
-        self.reader = None
-        self.writer = None
+    def __init__(self, reader=None, writer=None, log=None):
         self._msg_header_size = sum(list(zip(*self._msg_header))[2])
+        self.reader = reader
+        self.writer = writer
+
+        self._log = log
+        self.log_debug = lambda msg: self._log.debug("[{}] {}".format(self.peername, msg))
+        self.log_info = lambda msg: self._log.info("[{}] {}".format(self.peername, msg))
+        self.log_warn = lambda msg: self._log.warn("[{}] {}".format(self.peername, msg))
+        self.log_error = lambda msg: self._log.error("[{}] {}".format(self.peername, msg))
 
     @asyncio.coroutine
     def dispatch_netstructs(self):
@@ -104,7 +111,7 @@ class NetStructDispatcher:
             try:
                 msg_struct, handler = self.incoming_lookup[header.msg_id]
             except LookupError:
-                # TODO: log error
+                self.log_warn("invalid messageID {}".format(header.msg_id))
                 self.connection_reset()
                 return
 
@@ -124,6 +131,10 @@ class NetStructDispatcher:
             # This closes the transport
             self.writer.close()
 
+    @property
+    def peername(self):
+        return "{}/{}".format(*self.writer.get_extra_info("peername"))
+
     @asyncio.coroutine
     def send_netstruct(self, netmsg):
         msgBuf = write_netstruct(None, netmsg)
@@ -142,6 +153,10 @@ class NetStructDispatcher:
 
 
 class NetClient(NetStructDispatcher):
+    def __init__(self):
+        log = util.find_log(self.__class__.__name__)
+        super(NetClient, self).__init__(log=log)
+
     @asyncio.coroutine
     def _finalize_connection(self):
         pass
@@ -167,11 +182,15 @@ class NetClient(NetStructDispatcher):
 
 class NetServerSession(NetStructDispatcher):
     def __init__(self, client, parent):
-        super(NetServerSession, self).__init__()
-        self.reader = client.reader
-        self.writer = client.writer
+        super(NetServerSession, self).__init__(client.reader, client.writer, parent._log)
         self._parent = weakref.ref(parent)
 
     def connection_reset(self):
+        self.log_debug("connection reset")
         super(NetServerSession, self).connection_reset()
         self._parent().clients.remove(self)
+
+    @asyncio.coroutine
+    def dispatch_netstructs(self):
+        self.log_debug("client connected")
+        yield from super(NetServerSession, self).dispatch_netstructs()

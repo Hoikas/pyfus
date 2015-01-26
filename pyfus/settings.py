@@ -51,6 +51,11 @@ _default_config = {
         "port": 14617,
     },
 
+    "log": {
+        "path": "~/.fus/logs",
+        "level": "info",
+    },
+
     "product": {
         "build_id": 0,
         "uuid": uuid.UUID("ea489821-6c35-4bd0-9dae-bb17c585e680"),

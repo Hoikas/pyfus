@@ -17,6 +17,8 @@
 import abc
 import base64
 
+import util
+
 _servers = {}
 
 # Some konstants
@@ -24,8 +26,17 @@ _c2s_connect = 0
 _s2c_encrypt = 1
 
 class ServerBase(abc.ABC):
-    def __init__(self):
+    def __init__(self, log=None):
         self.clients = []
+
+        if log is None:
+            self._log = util.find_log(self.__class__.__name__)
+        else:
+            self._log = log
+        self.log_debug = self._log.debug
+        self.log_info = self._log.info
+        self.log_warn = self._log.warn
+        self.log_error = self._log.error
 
     @abc.abstractmethod
     def accept_client(self, client):

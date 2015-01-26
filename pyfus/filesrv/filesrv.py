@@ -53,7 +53,6 @@ class FileSrv(net.ServerBase):
     @asyncio.coroutine
     def accept_client(self, client):
         header = yield from net.read_netstruct(client.reader, _msg.connection_header)
-        print(str(header))
 
         session = FileSession(client, self)
         self.clients.append(session)

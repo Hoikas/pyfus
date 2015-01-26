@@ -35,6 +35,7 @@ class AdminSession(net.NetServerSession):
 
     @asyncio.coroutine
     def shutdown_shard(self, msg):
+        self.log_info("shutdown requested: '{}'".format(msg.message))
         print(msg.message)
 
         # Schedule the shutdown to start soon. We don't want to deadlock!
