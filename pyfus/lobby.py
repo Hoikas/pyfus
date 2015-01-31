@@ -65,7 +65,11 @@ class LobbySrv(net.ServerBase):
 
         srv = net.fetch_server(header.conn_type)
         task = asyncio.async(srv.accept_client(cli))
+        task.add_done_callback(self._on_client_task_done)
         self._client_tasks.append(task)
+
+    def _on_client_task_done(self, task):
+        self._client_tasks.remove(task)
 
 
 # Register this server so things actually happen
