@@ -27,11 +27,38 @@ class AuthSession(net.NetServerSession):
         super(AuthSession, self).__init__(client, parent)
         self.incoming_lookup = {
             0: (_msg.ping_pong, self.ping_pong),
+            1: (_msg.client_register_req, self.client_register),
+            # 2: SetCCRLevel
+            3: (_msg.login_request, self.account_login),
         }
+        self.outgoing_lookup = {
+            _msg.ping_pong: 0,
+            # 1: ServerAddr
+            # 2: NotifyNewBuild
+            _msg.client_register_reply: 3,
+        }
+
+        # Server Challenge -- for salted login requests
+        self._server_challenge = crypto.random_int()
+
+    @asyncio.coroutine
+    def account_login(self, request):
+        print(str(request))
 
     @asyncio.coroutine
     def ping_pong(self, ping):
-        print(str(ping))
+        pong = net.NetMessage(_msg.ping_pong,
+                              trans_id=ping.trans_id,
+                              ping_time=ping.ping_time,
+                              payload=ping.payload)
+        yield from self.send_netstruct(pong)
+
+    @asyncio.coroutine
+    def client_register(self, req):
+        self.log_debug("client challenge '{:X}'", self._server_challenge)
+        reply = net.NetMessage(_msg.client_register_reply,
+                               challenge=self._server_challenge)
+        yield from self.send_netstruct(reply)
 
 
 class AuthSrv(net.ServerBase):

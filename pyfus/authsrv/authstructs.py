@@ -26,3 +26,19 @@ ping_pong = (
     (fields.integer, "ping_time", 4),
     (fields.tiny_buffer, "payload", 4),
 )
+
+client_register_req = (
+    (fields.integer, "build_id", 4),
+)
+client_register_reply = (
+    (fields.integer, "challenge", 4),
+)
+
+login_request = (
+    (fields.integer, "trans_id", 4),
+    (fields.integer, "challenge", 4),
+    (fields.string, "account", 64),
+    (fields.blob, "hash", 20),
+    (fields.string, "token", 64),
+    (fields.string, "os", 8),
+)

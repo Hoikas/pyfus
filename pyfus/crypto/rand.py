@@ -24,7 +24,7 @@ def random_bytes(numBytes):
     openssl.RAND_bytes(buf, numBytes)
     return buf
 
-def random_int(numBytes):
+def random_int(numBytes=4):
     buf = bytes(numBytes)
     openssl.RAND_bytes(buf, numBytes)
     return int.from_bytes(buf, byteorder="big")
