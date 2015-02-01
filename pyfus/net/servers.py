@@ -27,7 +27,7 @@ _s2c_encrypt = 1
 
 class ServerBase(abc.ABC):
     def __init__(self, log=None):
-        self.clients = []
+        self.clients = util.LinkedList()
 
         if log is None:
             self._log = util.find_log(self.__class__.__name__)

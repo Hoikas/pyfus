@@ -18,13 +18,14 @@ import asyncio
 
 import net
 import settings
+import util
 
 class LobbySrv(net.ServerBase):
     _conn_type = ord('l')
 
     def __init__(self):
         super(LobbySrv, self).__init__()
-        self._client_tasks = []
+        self._client_tasks = util.LinkedList()
 
     @asyncio.coroutine
     def accept_client(self, client):
@@ -42,7 +43,7 @@ class LobbySrv(net.ServerBase):
         #       Yes, I'm looking at you, AdminClient
         for i in self._client_tasks:
             i.cancel()
-        del self._client_tasks[:]
+        self._client_tasks.clear()
 
         # We aren't dead yet... The loop still needs to run and raise the exceptions. Anything that
         # is shielded will need to finish (eg database transactions). Then, the loop will end, and we
