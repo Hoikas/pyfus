@@ -94,10 +94,10 @@ class NetStructDispatcher:
         self.writer = writer
 
         self._log = log
-        self.log_debug = lambda msg: self._log.debug("[{}] {}".format(self.peername, msg))
-        self.log_info = lambda msg: self._log.info("[{}] {}".format(self.peername, msg))
-        self.log_warn = lambda msg: self._log.warn("[{}] {}".format(self.peername, msg))
-        self.log_error = lambda msg: self._log.error("[{}] {}".format(self.peername, msg))
+        self.log_debug = lambda msg, *args: self._log.debug(msg, *args, leader=self.peername)
+        self.log_info = lambda msg, *args: self._log.info(msg, *args, leader=self.peername)
+        self.log_warn = lambda msg, *args: self._log.warn(msg, *args, leader=self.peername)
+        self.log_error = lambda msg, *args: self._log.error(msg, *args, leader=self.peername)
 
     @asyncio.coroutine
     def dispatch_netstructs(self):

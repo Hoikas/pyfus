@@ -46,28 +46,33 @@ class _LogFile:
         self._writeline("END '{}'".format(self._logname))
         self._handle.close()
 
-    def debug(self, msg):
+    def debug(self, msg, *args, leader=None):
         if _level == _LogLevel.debug:
-            self._writeline(msg, "DBG")
+            self._writeline(msg, *args, levelStr="DBG", leader=leader)
 
-    def info(self, msg):
+    def info(self, msg, *args, leader=None):
         if _level <= _LogLevel.info:
-            self._writeline(msg, "INF")
+            self._writeline(msg, *args, levelStr="INF", leader=leader)
 
-    def warn(self, msg):
+    def warn(self, msg, *args, leader=None):
         if _level <= _LogLevel.warning:
-            self._writeline(msg, "WRN")
+            self._writeline(msg, *args, levelStr="WRN", leader=leader)
 
-    def error(self, msg):
+    def error(self, msg, *args, leader=None):
         if _level <= _LogLevel.error:
-            self._writeline(msg, "ERR")
+            self._writeline(msg, args, levelStr="ERR", leader=leader)
 
-    def _writeline(self, line, levelStr=None):
+    def _writeline(self, line, *args, levelStr=None, leader=None):
+        if len(args) > 0:
+            line = line.format(*args)
+
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         if levelStr is None:
             theLine = "[{}] {}\n".format(now, line)
-        else:
+        elif leader is None:
             theLine = "[{}] {}: {}\n".format(now, levelStr, line)
+        else:
+            theLine = "[{}] {}: [{}] {}\n".format(now, levelStr, leader, line)
         self._handle.write(theLine)
         self._handle.flush()
 
