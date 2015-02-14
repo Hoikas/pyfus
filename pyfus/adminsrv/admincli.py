@@ -16,6 +16,7 @@
 
 import asyncio
 
+from constants import *
 import crypto
 import net
 import settings
@@ -23,7 +24,7 @@ import settings
 from . import adminstructs as _msg
 
 class AdminCli(net.NetClient):
-    _conn_type = net.ServerID.admin
+    _conn_type = NetProtocol.admin
     _n = net.decode_key(settings.admin.n_key)
     _x = net.decode_key(settings.admin.x_key)
 

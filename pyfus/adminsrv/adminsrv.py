@@ -17,6 +17,7 @@
 import asyncio
 import sys
 
+from constants import *
 import crypto
 import net
 import settings
@@ -39,11 +40,11 @@ class AdminSession(net.NetServerSession):
         print(msg.message)
 
         # Schedule the shutdown to start soon. We don't want to deadlock!
-        lobby = net.fetch_server(net.ServerID.lobby)
+        lobby = net.fetch_server(NetProtocol.lobby)
         asyncio.get_event_loop().call_later(2, lobby.shutdown())
 
 class AdminSrv(net.ServerBase):
-    _conn_type = net.ServerID.admin
+    _conn_type = NetProtocol.admin
     _k = net.decode_key(settings.admin.k_key)
     _n = net.decode_key(settings.admin.n_key)
 

@@ -17,6 +17,7 @@
 import asyncio
 import sys
 
+from constants import *
 import crypto
 import net
 import settings
@@ -43,12 +44,12 @@ class FileSession(net.NetServerSession):
     def send_buildid(self, req):
         reply = net.NetMessage(_msg.build_reply,
                                trans_id=req.trans_id,
-                               result=0,
+                               result=NetError.success,
                                build_id=settings.product.build_id)
         yield from self.send_netstruct(reply)
 
 class FileSrv(net.ServerBase):
-    _conn_type = net.ServerID.file
+    _conn_type = NetProtocol.file
 
     @asyncio.coroutine
     def accept_client(self, client):

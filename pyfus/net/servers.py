@@ -46,14 +46,6 @@ class ServerBase(abc.ABC):
         pass
 
 
-class ServerID:
-    admin = ord('a')
-    auth = 10
-    gatekeeper = 22
-    file = 16
-    lobby = ord('l')
-
-
 def all_servers():
     """Enumerates all registered servers"""
     for i in _servers.values():

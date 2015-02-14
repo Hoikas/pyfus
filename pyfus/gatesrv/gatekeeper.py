@@ -16,6 +16,7 @@
 
 import asyncio
 
+from constants import *
 import crypto
 import net
 import settings
@@ -51,7 +52,7 @@ class GateKeeperSession(net.NetServerSession):
 
 
 class GateKeeperSrv(net.ServerBase):
-    _conn_type = net.ServerID.gatekeeper
+    _conn_type = NetProtocol.gatekeeper
     _k = net.decode_key(settings.gatekeeper.k_key)
     _n = net.decode_key(settings.gatekeeper.n_key)
 

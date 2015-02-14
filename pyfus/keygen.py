@@ -17,11 +17,13 @@
 import base64
 import crypto
 
+from constants import DiffieHellmanG
+
 gValues = {
-    (None, "admin"): 97,
-    ("Server.Auth", "auth"): 41,
-    ("Server.Game", "game"): 73,
-    ("Server.Gate", "gatekeeper"): 4,
+    (None, "admin"): DiffieHellmanG.admin,
+    ("Server.Auth", "auth"): DiffieHellmanG.auth,
+    ("Server.Game", "game"): DiffieHellmanG.game,
+    ("Server.Gate", "gatekeeper"): DiffieHellmanG.gatekeeper,
 }
 
 def generate_keyset(cliname, srvname, gValue):

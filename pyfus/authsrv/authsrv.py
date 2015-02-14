@@ -16,6 +16,7 @@
 
 import asyncio
 
+from constants import *
 import crypto
 import net
 import settings
@@ -62,7 +63,7 @@ class AuthSession(net.NetServerSession):
 
 
 class AuthSrv(net.ServerBase):
-    _conn_type = net.ServerID.auth
+    _conn_type = NetProtocol.auth
     _k = net.decode_key(settings.auth.k_key)
     _n = net.decode_key(settings.auth.n_key)
 
