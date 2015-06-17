@@ -22,6 +22,7 @@ from constants import DiffieHellmanG
 gValues = {
     (None, "admin"): DiffieHellmanG.admin,
     ("Server.Auth", "auth"): DiffieHellmanG.auth,
+    (None, "db"): DiffieHellmanG.db,
     ("Server.Game", "game"): DiffieHellmanG.game,
     ("Server.Gate", "gatekeeper"): DiffieHellmanG.gatekeeper,
 }

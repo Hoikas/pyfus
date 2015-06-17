@@ -17,6 +17,7 @@
 class DiffieHellmanG:
     admin = ord('a')
     auth = 41
+    db = ord('v')
     game = 73
     gatekeeper = 4
 
@@ -24,6 +25,7 @@ class DiffieHellmanG:
 class NetProtocol:
     admin = ord('a')
     auth = 10
+    db = ord('v')
     gatekeeper = 22
     file = 16
     lobby = ord('l')

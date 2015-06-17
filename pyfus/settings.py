@@ -34,6 +34,19 @@ _default_config = {
         "n_key": "",
     },
 
+    "db": {
+        "k_key": "",
+        "n_key": "",
+        "x_key": "",
+
+        "engine": "sqlite3",
+        "host": "127.0.0.1",
+        "name": "~/.fus/vault.db",
+        "pool_size": 4,
+        "user": "root",
+        "password": "",
+    },
+
     "game": {
         "k_key": "",
         "n_key": "",
